@@ -20,15 +20,15 @@ export class AdminService {
   }
 
   getPhotosForApproval() {
-    return this.http.get(this.baseUrl + 'admin/photos/forApproval');
+    return this.http.get(this.baseUrl + 'admin/photosForApproval');
   }
 
   approvePhoto(id: number) {
-    return this.http.put(this.baseUrl + 'admin/photos/' + id + '/approve', {});
+    return this.http.post(this.baseUrl + 'admin/approvePhoto/' + id, {});
   }
 
   rejectPhoto(id: number) {
-    return this.http.delete(this.baseUrl + 'admin/photos/' + id);
+    return this.http.delete(this.baseUrl + 'admin/rejectPhoto/' + id);
   }
 
 }

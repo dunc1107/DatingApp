@@ -31,7 +31,7 @@ namespace DatingApp.API.Controllers
         {
             var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
 
-            var userFromRepo = await _repo.GetUser(currentUserId);
+            var userFromRepo = await _repo.GetUser(currentUserId, false);
 
             userParams.UserId = currentUserId;
 
@@ -52,25 +52,11 @@ namespace DatingApp.API.Controllers
         [HttpGet("{id}", Name = "GetUser")]
         public async Task<IActionResult> GetUser(int id)
         {
-            var isLoggedInUser = false;
+            var isCurrentUser = id == int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
 
-            if (id == int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value))
-                isLoggedInUser = true;
-
-            var user = await _repo.GetUser(id);
+            var user = await _repo.GetUser(id, isCurrentUser);
 
             var userToReturn = _mapper.Map<UserForDetailedDto>(user);
-
-            if (!isLoggedInUser)
-            {
-                var unapprovedPhotos = userToReturn.Photos.Where(p => !p.isApproved).ToList();
-
-                foreach (var unapprovedPhoto in unapprovedPhotos)
-                {
-                    userToReturn.Photos.Remove(unapprovedPhoto);
-                }
-
-            }
 
             return Ok(userToReturn);
         }
@@ -81,7 +67,7 @@ namespace DatingApp.API.Controllers
             if (id != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value))
                 return Unauthorized();
 
-            var userFromRepo = await _repo.GetUser(id);
+            var userFromRepo = await _repo.GetUser(id, true);
 
             _mapper.Map(userForUpdateDto, userFromRepo);
 
@@ -102,7 +88,7 @@ namespace DatingApp.API.Controllers
             if (like != null)
                 return BadRequest("You already like this user");
 
-            if (await _repo.GetUser(recipientId) == null)
+            if (await _repo.GetUser(recipientId, false) == null)
                 return NotFound();
 
             like = new Like

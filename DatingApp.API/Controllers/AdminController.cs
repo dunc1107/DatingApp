@@ -23,15 +23,11 @@ namespace DatingApp.API.Controllers
     {
         private readonly DataContext _context;
         private readonly UserManager<User> _userManager;
-        private readonly IDatingRepository _repo;
-        private readonly IMapper _mapper;
         private readonly IOptions<CloudinarySettings> _cloudinaryConfig;
         private Cloudinary _cloudinary;
-        public AdminController(DataContext context, UserManager<User> userManager, IDatingRepository repo, IMapper mapper, IOptions<CloudinarySettings> cloudinaryConfig)
+        public AdminController(DataContext context, UserManager<User> userManager, IOptions<CloudinarySettings> cloudinaryConfig)
         {
             _cloudinaryConfig = cloudinaryConfig;
-            _mapper = mapper;
-            _repo = repo;
             _userManager = userManager;
             _context = context;
             
@@ -96,61 +92,67 @@ namespace DatingApp.API.Controllers
         }
 
         [Authorize(Policy = "ModeratePhotoRole")]
-        [HttpGet("photos/forApproval")]
+        [HttpGet("photosForApproval")]
         public async Task<IActionResult> GetPhotosForApproval()
         {
-            var photosFromRepo = await _repo.GetPhotosForApproval();
-
-            var photos = _mapper.Map<IEnumerable<PhotoForReturnDto>>(photosFromRepo);
+            var photos = await _context.Photos
+                .Include(u => u.User)
+                .IgnoreQueryFilters()
+                .Where(p => p.IsApproved == false)
+                .Select(u => new
+                {
+                    Id = u.Id,
+                    UserName = u.User.UserName,
+                    Url = u.Url,
+                    IsApproved = u.IsApproved
+                }).ToListAsync();
 
             return Ok(photos);
         }
 
         [Authorize(Policy = "ModeratePhotoRole")]
-        [HttpPut("photos/{id}/approve")]
+        [HttpPost("approvePhoto/{id}")]
         public async Task<IActionResult> ApprovePhoto(int id)
         {
-            var photoFromRepo = await _repo.GetPhoto(id);
+            var photo = await _context.Photos.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == id);
 
-            if (photoFromRepo == null)
+            if (photo == null)
                 return BadRequest("No photo found");
 
-            photoFromRepo.IsApproved = true;
+            photo.IsApproved = true;
 
-            if (await _repo.SaveAll())
-                return NoContent();
+            await _context.SaveChangesAsync();
 
-            throw new Exception($"Approving photo {id} failed on save");
+            return Ok();
         }
 
         [Authorize(Policy = "ModeratePhotoRole")]
-        [HttpDelete("photos/{id}")]
+        [HttpDelete("rejectPhoto/{id}")]
         public async Task<IActionResult> RejectPhoto(int id)
         {
-            var photoFromRepo = await _repo.GetPhoto(id);
+            var photo = await _context.Photos.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == id);
 
-            if (photoFromRepo == null)
-                return BadRequest("No photo found");
+            if (photo.IsMain)
+                return BadRequest("You cannot reject the main photo");
 
-            if (photoFromRepo.PublicId != null)
+            if (photo.PublicId != null)
             {
-                var deleteParams = new DeletionParams(photoFromRepo.PublicId);
+                var deleteParams = new DeletionParams(photo.PublicId);
 
                 var result = _cloudinary.Destroy(deleteParams);
 
                 if (result.Result == "ok")
-                    _repo.Delete(photoFromRepo);
+                    _context.Photos.Remove(photo);
             }
 
-            if (photoFromRepo.PublicId == null)
+            if (photo.PublicId == null)
             {
-                _repo.Delete(photoFromRepo);
+                _context.Photos.Remove(photo);
             }
 
-            if (await _repo.SaveAll())
-                return Ok();
+            await _context.SaveChangesAsync();
 
-            return BadRequest("Failed to reject the photo");
+            return Ok();
         }
     }
 }

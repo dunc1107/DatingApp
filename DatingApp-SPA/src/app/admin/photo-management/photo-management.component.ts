@@ -9,7 +9,7 @@ import { AlertifyService } from 'src/app/_services/alertify.service';
   styleUrls: ['./photo-management.component.css']
 })
 export class PhotoManagementComponent implements OnInit {
-  photos: Photo[];
+  photos: any;
 
   constructor(private adminService: AdminService, private alertify: AlertifyService) { }
 
@@ -18,7 +18,7 @@ export class PhotoManagementComponent implements OnInit {
   }
 
   getPhotosForApproval() {
-    this.adminService.getPhotosForApproval().subscribe((photos: Photo[]) => {
+    this.adminService.getPhotosForApproval().subscribe(photos => {
       this.photos = photos;
     }, error => {
       this.alertify.error(error);
