@@ -6,4 +6,5 @@ namespace DatingApp.API.Helpers
         public string ApiKey { get; set; }
         public string ApiSecret { get; set; }
     }
+    
 }

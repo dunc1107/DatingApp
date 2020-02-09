@@ -149,5 +149,10 @@ namespace DatingApp.API.Data
 
             return messages;
         }
+
+        public async Task<IEnumerable<Photo>> GetPhotosForApproval()
+        {
+            return await _context.Photos.Where(p => !p.IsApproved).ToListAsync();
+        }
     }
 }
